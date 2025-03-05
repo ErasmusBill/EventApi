@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework', # Add this line
     'authservices', # Add this line
+    'eventservices', #Add this line
     'rest_framework_simplejwt', # Add this line
     'rest_framework_simplejwt.token_blacklist', # Add this line
     
