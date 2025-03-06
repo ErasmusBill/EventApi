@@ -3,4 +3,4 @@ from .models import *
 # Register your models here.
 
 admin.site.register(Event)
-admin.site.regist(Event_registration)
+admin.site.register(Event_registration)

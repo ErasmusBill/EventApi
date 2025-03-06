@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import *
 
-class EventSerializer(serializers.ModelFieldo):
+class EventSerializer(serializers.ModelSerializer):
     organizer = serializers.StringRelatedField(read_only=True)
     
     class Meta:
