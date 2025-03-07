@@ -14,4 +14,4 @@ class IsAdmin(BasePermission):
 
 class IsAttendee(BasePermission):
     def has_permission(self, request, view):
-        return super().has_permission(request, view)    
+        return request.user.role == User.role.ATTENDEE

@@ -8,6 +8,16 @@ urlpatterns = [
     path('delete-event/<int:pk>/', views.DeleteEventView.as_view(), name="delete-event"),
     path('list-event/', views.ListEventView.as_view(), name="list-event"),
     path('event-detail/<int:pk>/', views.DetailEventView.as_view(), name="event-detail"),
+    path('events/<int:pk>/duplicate/',views.EventDuplicateView.as_view(), name='duplicate-event'),
+    path('search-event/',views.search_event, name="search-event"),
+    path('organizer-dashboard',views.OrganizerDashboard.as_view(), name="organizer-dashboard"),
+    path('attendee-dashboard/',views.AttendeeDashboard.as_view(), name='attendee-dashboard'),
+    path('events/<int:event_id>/export-attendees/',views.ExportAttendees.as_view(),name='export-attendees'),
+    path('events/<int:event_id>/export-calendar/',views.EventCalendarExport.as_view(),name='export-calendar'),
+    path('ticket-types/<int:ticket_type_id>/create-payment-intent/',views.CreatePaymentIntent.as_view(),
+    name='create-payment-intent'),
+
+    
 
     # Event Registration
     path('register-event/<int:event_id>/', views.EventRegistrationView.as_view(), name="register-event"),

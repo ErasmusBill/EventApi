@@ -19,4 +19,7 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
         fields = ["id","event","attendee","status","registration_date"]
         read_only_fields = ["attendee","status","registration_date"]    
         
-        
+class TicketTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketType
+        fields = '__all__'        

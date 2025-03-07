@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .serializers import EventSerializer,Event_registration,EventRegistrationSerializer
-from .models import Event,Event_registration
+from .models import Event,Event_registration,TicketType
 from rest_framework.exceptions import PermissionDenied
 from django.dispatch import receiver
 from django.db.models.signals import post_save
@@ -14,6 +14,15 @@ from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view
 from .permissions import IsAdmin,IsOrganizer,IsAttendee
+from django.http import HttpResponse
+from django.utils import timezone,now
+import csv
+from datetime import timedelta
+from icalendar import Calendar
+import stripe
+from django.http import HttpResponse
+from django.utils import timedelta
+from django.db.models import Q
 # Create your views here.
 
 #For event handling
@@ -26,6 +35,26 @@ class CreateEventView(APIView):
             serializer.save(organizer=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class EventDuplicateView(APIView):
+    permission_classes = [IsAuthenticated, IsOrganizer|IsAdmin]
+
+    def post(self, request, pk):
+        original_event = get_object_or_404(Event, pk=pk)
+        
+        # Validate ownership
+        if original_event.organizer != request.user:
+            return Response(
+                {"detail": "You can only duplicate your own events"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Duplicate with 7-day offset by default
+        new_event = original_event.duplicate()
+        return Response(
+            EventSerializer(new_event).data,
+            status=status.HTTP_201_CREATED
+        )    
 
 
 class UpdateEventView(APIView):
@@ -227,12 +256,74 @@ class DeleteEventRegistrationView(APIView):
         )
     
 @api_view(["GET"])
-def search_event(self,request):
+def search_event(request): 
     if request.method == "GET":
-        title = request.querry_params.get('title')
+        title = request.query_params.get('title')
         events = Event.objects.filter(title__icontains=title)
-        serializer = EventSerializer(events,many=True)
+        serializer = EventSerializer(events, many=True)
         return Response(serializer.data)    
-            
+    
+class OrganizerDashboard(APIView):
+    permission_classes = [IsOrganizer]
+    
+    def get(self, request):
+        events = Event.objects.filter(organizer=request.user)
+        data = {
+            'total_events': events.count(),
+            'upcoming_events': EventSerializer(events.filter(start_datetime__gte=now())), 
+            'registration_stats': {
+                'total': Event_registration.objects.filter(event__in=events).count(),
+                'attended': Event_registration.objects.filter(event__in=events, check_in_time__isnull=False).count()
+            }
+        }
+        return Response(data)    
         
-           
+class AttendeeDashboard(APIView):
+    permission_classes = [IsAttendee]
+    
+    def get(self, request):
+        registrations = Event_registration.objects.filter(attendee=request.user)
+        return Response(EventRegistrationSerializer(registrations, many=True).data)     
+    
+class ExportAttendees(APIView):
+    def get(self, request, event_id):
+        event = get_object_or_404(Event, pk=event_id)
+        registrations = event.registrations.all()
+        
+        response = HttpResponse(content_type='text/csv')
+        writer = csv.writer(response)
+        writer.writerow(['Name', 'Email', 'Check-in Time'])
+        
+        for reg in registrations:
+            writer.writerow([reg.attendee.name, reg.attendee.email, reg.check_in_time])
+            
+        response['Content-Disposition'] = f'attachment; filename="{event.slug}_attendees.csv"'
+        return response      
+    
+    
+
+class EventCalendarExport(APIView):
+    def get(self, request, event_id):
+        event = get_object_or_404(Event, pk=event_id)
+        cal = Calendar()
+        cal.add('vevent', {
+            'summary': event.title,
+            'dtstart': event.start_datetime,
+            'dtend': event.end_datetime,
+            'location': event.location,
+        })
+        
+        return HttpResponse(cal.to_ical(), content_type='text/calendar')  
+    
+# views.py
+class CreatePaymentIntent(APIView):
+    def post(self, request, ticket_type_id):
+        ticket_type = get_object_or_404(TicketType, pk=ticket_type_id)
+        
+        payment_intent = stripe.PaymentIntent.create(
+            amount=int(ticket_type.price * 100),
+            currency='usd',
+            metadata={'ticket_type_id': ticket_type_id}
+        )
+        
+        return Response({'client_secret': payment_intent.client_secret})          
