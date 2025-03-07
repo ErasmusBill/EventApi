@@ -3,9 +3,9 @@ from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
     role = [
-        ('admin', 'admin'),
+        ('Admin', 'admin'),
         ('Attendee', 'attendee'),
-        ('organizer', 'organizer')
+        ('Organizer', 'organizer')
     ]
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)

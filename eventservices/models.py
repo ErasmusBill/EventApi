@@ -31,10 +31,20 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    
+    class Meta:
+        permissions = [
+            ("can_create_event","Can create event"),
+            ("can_edit_all_event","Can edit all events"),
+            ("can_view_all_event","Can view all events"),
+            ("can_delete_event","Can delete event")
+        ]
+    
     def is_registration_open(self):
         if self.registration_deadline:
             return timezone.now() < self.registration_deadline
         return True
+    
     
     def available_seats(self):
         if self.capacity is None:

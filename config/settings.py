@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'eventservices', #Add this line
     'rest_framework_simplejwt', # Add this line
     'rest_framework_simplejwt.token_blacklist', # Add this line
+    'permission',
     
 ]
 

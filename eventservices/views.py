@@ -12,11 +12,13 @@ from authservices.models import User
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.decorators import api_view
+from .permissions import IsAdmin,IsOrganizer,IsAttendee
 # Create your views here.
 
 #For event handling
 class CreateEventView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin]
 
     def post(self, request):
         serializer = EventSerializer(data=request.data)
@@ -27,7 +29,7 @@ class CreateEventView(APIView):
 
 
 class UpdateEventView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin]
 
     def put(self, request, pk):
         event = get_object_or_404(Event, pk=pk)
@@ -43,7 +45,7 @@ class UpdateEventView(APIView):
 
 
 class DeleteEventView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin]
 
     def delete(self, request, pk):
         event = get_object_or_404(Event, pk=pk)
@@ -144,9 +146,10 @@ def send_event_registration_mail(sender, instance, created, **kwargs):
         
 
 class EventRegistrationList(APIView):
+    permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin]
     def get(self,request,event_id):
         event = get_object_or_404(Event,pk=event_id)
-        if request.user != event.organizer:
+        if request.user != event.organizer or request.user != event.admin:
             return Response(
                 {
                     "detail":"You don't have permission to perform this action"
@@ -162,6 +165,7 @@ class EventRegistrationList(APIView):
         return paginator.get_paginated_response(serializer.data)
     
 class EventRegistrationCancellation(APIView):
+    permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin,IsAttendee]
     def patch(self,request,registration_id):
         registration = get_object_or_404(Event_registration,pk=registration_id)
         
@@ -204,6 +208,7 @@ def send_cancellation_email(sender, instance, **kwargs):
         )    
     
 class DeleteEventRegistrationView(APIView):
+    permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin,IsAttendee]
     def delete(self,request,registration_id):
         registration = get_object_or_404(Event_registration,pk=registration_id)   
         
@@ -221,6 +226,13 @@ class DeleteEventRegistrationView(APIView):
             status=status.HTTP_204_NO_CONTENT
         )
     
+@api_view(["GET"])
+def search_event(self,request):
+    if request.method == "GET":
+        title = request.querry_params.get('title')
+        events = Event.objects.filter(title__icontains=title)
+        serializer = EventSerializer(events,many=True)
+        return Response(serializer.data)    
             
         
            
