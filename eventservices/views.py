@@ -41,8 +41,7 @@ class EventDuplicateView(APIView):
 
     def post(self, request, pk):
         original_event = get_object_or_404(Event, pk=pk)
-        
-        # Validate ownership
+    
         if original_event.organizer != request.user:
             return Response(
                 {"detail": "You can only duplicate your own events"},
@@ -315,7 +314,7 @@ class EventCalendarExport(APIView):
         
         return HttpResponse(cal.to_ical(), content_type='text/calendar')  
     
-# views.py
+
 class CreatePaymentIntent(APIView):
     def post(self, request, ticket_type_id):
         ticket_type = get_object_or_404(TicketType, pk=ticket_type_id)

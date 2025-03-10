@@ -22,6 +22,10 @@ from django.utils.encoding import force_str, force_bytes
 from django.utils.http import urlsafe_base64_decode
 
 class UserRegistration(APIView):
+    def get(self,request):
+        serializer = UserRegistration()
+        return Response(serializer.data,status=status.HTTP_200_OK)
+    
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -95,6 +99,11 @@ class LoginView(APIView):
         
         if not username or not password:
             return Response({'error': 'Username and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if user.is_verified == None:
+            return Response({
+                "detail":"Please check in your mail to verify the email"
+            },status=status.HTTP_100_CONTINUE)
         
         user = authenticate(username=username, password=password)
         

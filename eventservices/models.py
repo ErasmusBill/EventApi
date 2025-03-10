@@ -1,17 +1,18 @@
 from django.db import models
 from authservices.models import User
-from django.utils import timezone,timedelta
+from django.utils import timezone
+from datetime import timedelta
 
 class EventCategory(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     
-    def __str__(self):
-        return self.name
-    
     class Meta:
         verbose_name_plural = "Event Categories"
-        
+    
+    def __str__(self):
+        return self.name
+
 class Event(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
@@ -29,54 +30,51 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    
     class Meta:
         permissions = [
-            ("can_create_event","Can create event"),
-            ("can_edit_all_event","Can edit all events"),
-            ("can_view_all_event","Can view all events"),
-            ("can_delete_event","Can delete event")
+            ("can_create_event", "Can create event"),
+            ("can_edit_all_event", "Can edit all events"),
+            ("can_view_all_event", "Can view all events"),
+            ("can_delete_event", "Can delete event")
         ]
+    
+    def duplicate(self, new_title=None, date_offset_days=7):
+        """Create a copy of the event with optional date offset"""
+        new_event = self
+        new_event.pk = None  # Create new database entry
+        new_event.title = new_title or f"{self.title} (Copy)"
         
-        def duplicate(self, new_title=None, date_offset_days=7):
-            """Create a copy of the event with optional date offset"""
-            new_event = self
-            new_event.pk = None  # Create new database entry
-            new_event.title = new_title or f"{self.title} (Copy)"
-        
-            # Shift dates
-            new_event.start_datetime += timedelta(days=date_offset_days)
-            new_event.end_datetime += timedelta(days=date_offset_days)
-            new_event.save()
+        # Shift dates
+        new_event.start_datetime += timedelta(days=date_offset_days)
+        new_event.end_datetime += timedelta(days=date_offset_days)
+        new_event.save()
 
-            # Copy M2M relationships
-            new_event.categories.set(self.categories.all())
+        # Copy M2M relationships
+        new_event.categories.set(self.categories.all())
         
-            # Copy ticket types
-            for ticket in self.ticket_types.all():
-                ticket.pk = None
-                ticket.event = new_event
-                ticket.save()
+        # Copy ticket types
+        for ticket in self.ticket_types.all():
+            ticket.pk = None
+            ticket.event = new_event
+            ticket.save()
 
-            return new_event
-   
+        return new_event
     
     def is_registration_open(self):
         if self.registration_deadline:
             return timezone.now() < self.registration_deadline
         return True
     
-    
     def available_seats(self):
         if self.capacity is None:
             return None  
         
-        registered = self.registrations.filter(status=Event_registration.CONFIRMED).count()
+        registered = self.registrations.filter(status='confirmed').count()
         return max(0, self.capacity - registered)
     
     def __str__(self):
         return self.title
-    
+
 class TicketType(models.Model):
     event = models.ForeignKey(Event, related_name='ticket_types', on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
@@ -85,6 +83,8 @@ class TicketType(models.Model):
     available_from = models.DateTimeField()
     available_to = models.DateTimeField()        
     
+    def __str__(self):
+        return self.name
 
 class Event_registration(models.Model):
     CONFIRMED = 'confirmed'
@@ -110,8 +110,6 @@ class Event_registration(models.Model):
         
     def __str__(self):
         return f"{self.attendee.username} - {self.event.title}"
-    
-
 
 class NotificationType(models.Model):
     name = models.CharField(max_length=100)
@@ -143,5 +141,3 @@ class Notification(models.Model):
     
     def __str__(self):
         return f"{self.notification_type} for {self.user.username}"
-    
-    
