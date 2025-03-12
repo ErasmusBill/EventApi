@@ -20,24 +20,23 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import force_str, force_bytes
 from django.utils.http import urlsafe_base64_decode
+import random
+from datetime import timedelta
+
 
 class UserRegistration(APIView):
-    def get(self,request):
-        serializer = UserRegistration()
-        return Response(serializer.data,status=status.HTTP_200_OK)
-    
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            verification_token = str(uuid.uuid4())
-            user.verification_token = verification_token
-            user.verification_token_expiry = timezone.now() + timezone.timedelta(hours=24)
+            verification_pin = random.randint(1000, 9999)
+            user.verification_token = verification_pin
+            user.verification_token_expiry = timezone.now() + timedelta(hours=24)
             user.save()
-            print(f"Verification Token: {verification_token}")
+            print(f"Verification Token: {verification_pin}")
             return Response(
                 {
-                    "message": "You are registered successfully. Please verify your email",
+                    "message": "You are registered successfully. Please verify your email.",
                     "data": serializer.data
                 },
                 status=status.HTTP_201_CREATED
@@ -47,20 +46,14 @@ class UserRegistration(APIView):
 @receiver(post_save, sender=User)
 def send_verification_token(sender, instance, created, **kwargs):
     if created:
-        verification_token = instance.verification_token
-        base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
-        verification_url = f"{base_url}/api/users/verify-email/{verification_token}/"
-        
         subject = "Verify your email address"
         html_message = f"""
         <p>Hi {instance.username},</p>
-        <p>Please click the link below to verify your email address:</p>
-        <p><a href="{verification_url}">Verify Email</a></p>
-        <p>If you didn't request this, you can safely ignore this email.</p>
+        <p>Please enter your verification pin {instance.verification_token} to verify your email.</p>
         """
         plain_message = f"""
         Hi {instance.username},
-        Please click the link below to verify your email address: {verification_url}
+        Your verification pin is: {instance.verification_token}
         If you didn't request this, you can safely ignore this email.
         """
         
@@ -74,21 +67,80 @@ def send_verification_token(sender, instance, created, **kwargs):
                 fail_silently=False,
             )
         except Exception as e:
-            # Log the error
             print(f"Failed to send verification email: {e}")
-            
+
 class VerifyEmailView(APIView):
-    def get(self, request, token):
-        user = get_object_or_404(User, verification_token=token)   
+    def post(self, request):
+        pin = request.data.get('pin')
+        if not pin:
+            return Response({"error": "PIN is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+           
+        user = get_object_or_404(User, verification_token=pin)  
         
-        if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
-            user.is_verified = True
-            user.verification_token = None
-            user.verification_token_expiry = None
-            user.save()
-            return Response({"message":"Email verified successfully"}, status=status.HTTP_200_OK)     
+        if user.verification_token == pin:
+            if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
+                user.is_verified = True
+                user.verification_token = None
+                user.verification_token_expiry = None
+                user.save()
+        
+                return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Expired verification PIN"}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response({"error":"Invalid or expired verification token"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid verification PIN"}, status=status.HTTP_400_BAD_REQUEST)
+
+class ResendVerificationEmailView(APIView):
+    """
+    API endpoint to resend the verification email with a new 4-digit PIN.
+    """
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(User, email=email)
+
+        # Generate a new verification PIN
+        verification_pin = random.randint(1000, 9999)
+        user.verification_token = verification_pin
+        user.verification_token_expiry = timezone.now() + timedelta(hours=24)
+        user.save()
+
+        # Send the new verification PIN via email
+        subject = "Verify your email address"
+        html_message = f"""
+        <p>Hi {user.username},</p>
+        <p>Please enter your verification pin {verification_pin} to verify your email.</p>
+        """
+        plain_message = f"""
+        Hi {user.username},
+        Your verification pin is: {verification_pin}
+        If you didn't request this, you can safely ignore this email.
+        """
+        
+        try:
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                html_message=html_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Failed to send verification email: {e}")
+            return Response({"error": "Failed to send verification email"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({"message": "Verification email resent successfully."}, status=status.HTTP_200_OK)
+
+
+
+
+
+
+
 
 class LoginView(APIView):
     throttle_classes = [UserRateThrottle] 
@@ -100,12 +152,8 @@ class LoginView(APIView):
         if not username or not password:
             return Response({'error': 'Username and password are required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        if user.is_verified == None:
-            return Response({
-                "detail":"Please check in your mail to verify the email"
-            },status=status.HTTP_100_CONTINUE)
-        
         user = authenticate(username=username, password=password)
+        
         
         if not user:
             return Response({'error': 'Invalid username or password'}, status=status.HTTP_401_UNAUTHORIZED)

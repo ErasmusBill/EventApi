@@ -15,13 +15,12 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view
 from .permissions import IsAdmin,IsOrganizer,IsAttendee
 from django.http import HttpResponse
-from django.utils import timezone,now
 import csv
 from datetime import timedelta
+from django.utils import timezone
 from icalendar import Calendar
 import stripe
 from django.http import HttpResponse
-from django.utils import timedelta
 from django.db.models import Q
 # Create your views here.
 
