@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+import qrcode.constants
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -22,6 +23,9 @@ from icalendar import Calendar
 import stripe
 from django.http import HttpResponse
 from django.db.models import Q
+import qrcode
+from io import BytesIO
+from django.core.files import File
 # Create your views here.
 
 #For event handling
@@ -106,6 +110,29 @@ class DetailEventView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
+#Generate a qrcode for checkin
+def generate_qrcode(data, file_name):
+    """
+    Generate a QR code image from the given data
+    """
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")  
+
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    file = File(buffer, name=f"{file_name}.png")
+    return file
+    
 #For event registration
 class EventRegistrationView(APIView):
     def post(self,request,event_id):
@@ -131,46 +158,96 @@ class EventRegistrationView(APIView):
         status_code = Event_registration.CONFIRMED
         
         if available_seats == 0:
-            status_code = Event_registration.WAITLISTED
+            status= Event_registration.WAITLISTED
         elif available_seats is None:
-            status_code= Event_registration.CONFIRMED
+            status= Event_registration.CONFIRMED
         else:
-            status_code = Event_registration.CONFIRMED    
+            status = Event_registration.CONFIRMED    
             
         #Handles registration
         
         registration = Event_registration.objects.create(
             event=event,
             attendee = request.user,
-            status_code=status_code
-        )         
+            status=status
+        )   
+        
+        #Generate qrcode for checkin
+        
+        qr_code_data = f"Check-in code:{registration.check_in_code}"
+        qr_code_file = generate_qrcode(qr_code_data, f"qr_code_{registration.id}")   
+        
+        #Save qrcode
+        
+        registration.qr_code.save(f"qr_code_{registration.id}.png", qr_code_file, save=True)   
         
         serializer = EventRegistrationSerializer(registration)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    @receiver(post_save, sender=Event_registration)
+    def send_event_registration_mail(sender, instance, created, **kwargs):
+        if created: 
+            subject = f"Confirmation of Registration for {instance.event.title}"
+            body = f"""
+            Hello {instance.attendee.username},
 
-@receiver(post_save, sender=Event_registration)
-def send_event_registration_mail(sender, instance, created, **kwargs):
-    if created: 
-        subject = f"Confirmation of Registration for {instance.event.title}"
-        body = f"""
-        Hello {instance.attendee.username},
+            Thank you for registering to attend the event: {instance.event.title}.
+            The event will take place on {instance.event.start_datetime}.
 
-        Thank you for registering to attend the event: {instance.event.title}.
-        The event will take place on {instance.event.start_datetime}.
-
-        Best regards,
-        Event Team
-        """
+            Best regards,
+            Event Team
+            """
         
-        send_mail(
-            subject=subject,
-            message = body,
-             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[instance.attendee.email],
-            fail_silently=False,
-  
-        )
+            email = send_mail(
+                subject=subject,
+                message = body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[instance.attendee.email],
+                fail_silently=False,
+                )
+            
+            if instance.qr_code:
+                email.attach_file(instance.qr_code.path)
         
+            try:
+                email.send(fail_silently=False)
+            except Exception as e:
+                print(f"Failed to send verification email: {e}")
+        
+    
+class CheckInView(APIView):
+    def post(self,request):
+        check_in_code = request.data.get("check_in_code")
+        if not check_in_code:
+            return Response({"error":"Check-in code is required"},status=status.HTTP_400_BAD_REQUEST)  
+        
+        registration = get_object_or_404(Event_registration,check_in_code=check_in_code)  
+        
+        if registration.check_in_time:
+            return Response({"error":"Already checked in"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        registration.check_in_time = timezone.now()
+        registration.save()
+        
+        return Response({"message":"Check-in successful"},status=status.HTTP_200_OK)
+    
+    
+#Download qrcode 
+class DownloadQRCodeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, registration_id):
+        registration = get_object_or_404(Event_registration, id=registration_id, attendee=request.user)
+        
+        if not registration.qr_code:
+            return Response({"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        response = HttpResponse(registration.qr_code, content_type='image/png')
+        response['Content-Disposition'] = f'attachment; filename="qr_code_{registration.id}.png"'
+        return response    
+    
+    
+
 
 class EventRegistrationList(APIView):
     permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin]
@@ -324,4 +401,7 @@ class CreatePaymentIntent(APIView):
             metadata={'ticket_type_id': ticket_type_id}
         )
         
-        return Response({'client_secret': payment_intent.client_secret})          
+        return Response({'client_secret': payment_intent.client_secret})     
+    
+    
+    

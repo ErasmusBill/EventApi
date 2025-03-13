@@ -18,9 +18,20 @@ class Command(BaseCommand):
             'delete_event',
             'view_event'
         ]
+        
         for perm in organizer_perms:
             organizer_group.permissions.add(
                 Permission.objects.get(codename=perm))
+            
+        attendee_perms = [
+            'view_event',
+            'add_registration',
+        'change_registration',
+        '  delete_registration'
+        ]
+        for perm in attendee_perms:
+            attendee_group.permissions.add(
+            Permission.objects.get(codename=perm))    
         
         # Assign admin permissions
         admin_group.permissions.set(Permission.objects.all())

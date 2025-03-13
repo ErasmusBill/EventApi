@@ -24,4 +24,7 @@ urlpatterns = [
     path('registration-list/', views.EventRegistrationList.as_view(), name="registration-list"),
     path('registration-cancel/<int:pk>/', views.EventRegistrationCancellation.as_view(), name="registration-cancel"),
     path('registration-delete/<int:pk>/', views.DeleteEventRegistrationView.as_view(), name="registration-delete"),
+    path('check-in/', views.CheckInView.as_view(), name='check-in'),
+    path('registrations/<int:registration_id>/download-qr-code/', views.DownloadQRCodeView.as_view(), name='download-qr-code'),
+    
 ]

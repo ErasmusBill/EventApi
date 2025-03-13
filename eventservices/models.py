@@ -2,6 +2,7 @@ from django.db import models
 from authservices.models import User
 from django.utils import timezone
 from datetime import timedelta
+import uuid
 
 class EventCategory(models.Model):
     name = models.CharField(max_length=100)
@@ -103,10 +104,17 @@ class Event_registration(models.Model):
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=CONFIRMED)
     registration_date = models.DateTimeField(auto_now_add=True)
     check_in_time = models.DateTimeField(null=True, blank=True)
-    check_in_code = models.CharField(max_length=20, blank=True)
+    check_in_code = models.CharField(max_length=20, blank=True, unique=True)
     
     class Meta:
         unique_together = ['event', 'attendee']
+        
+        
+    def save(self, *args, **kwargs):
+        # Generate a unique check-in code if not already set
+        if not self.check_in_code:
+            self.check_in_code = str(uuid.uuid4())[:8]  # Generate a short unique code
+        super().save(*args, **kwargs)    
         
     def __str__(self):
         return f"{self.attendee.username} - {self.event.title}"
