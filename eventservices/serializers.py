@@ -22,4 +22,11 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
 class TicketTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = TicketType
-        fields = '__all__'        
+        fields = '__all__'      
+        
+        
+class EventCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventCategory
+        fields = '__all__'
+                 

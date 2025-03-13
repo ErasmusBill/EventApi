@@ -4,8 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .serializers import EventSerializer,Event_registration,EventRegistrationSerializer
-from .models import Event,Event_registration,TicketType
+from .serializers import EventSerializer,Event_registration,EventRegistrationSerializer,EventCategorySerializer
+from .models import Event,Event_registration,TicketType,EventCategory
 from rest_framework.exceptions import PermissionDenied
 from django.dispatch import receiver
 from django.db.models.signals import post_save
@@ -26,6 +26,7 @@ from django.db.models import Q
 import qrcode
 from io import BytesIO
 from django.core.files import File
+import json
 # Create your views here.
 
 #For event handling
@@ -329,30 +330,45 @@ class DeleteEventRegistrationView(APIView):
             {"message": "Registration deleted successfully."},
             status=status.HTTP_204_NO_CONTENT
         )
-    
 @api_view(["GET"])
-def search_event(request): 
-    if request.method == "GET":
-        title = request.query_params.get('title')
-        events = Event.objects.filter(title__icontains=title)
-        serializer = EventSerializer(events, many=True)
-        return Response(serializer.data)    
-    
+def search_event(request):
+    title = request.query_params.get('title')
+    category = request.query_params.get('category')
+    location = request.query_params.get('location')
+    start_date = request.query_params.get('start_date')
+
+    filters = Q()
+    if title:
+        filters &= Q(title__icontains=title)
+    if category:
+        filters &= Q(categories__name__icontains=category)
+    if location:
+        filters &= Q(location__icontains=location)
+    if start_date:
+        filters &= Q(start_datetime__gte=start_date)
+
+    events = Event.objects.filter(filters)
+    serializer = EventSerializer(events, many=True)
+    return Response(serializer.data)    
+
 class OrganizerDashboard(APIView):
     permission_classes = [IsOrganizer]
-    
     def get(self, request):
         events = Event.objects.filter(organizer=request.user)
         data = {
             'total_events': events.count(),
-            'upcoming_events': EventSerializer(events.filter(start_datetime__gte=now())), 
-            'registration_stats': {
-                'total': Event_registration.objects.filter(event__in=events).count(),
-                'attended': Event_registration.objects.filter(event__in=events, check_in_time__isnull=False).count()
+            'upcoming_events': EventSerializer(events.filter(start_datetime__gte=timezone.now())).data,
+            'analytics': {
+                'total_revenue': sum(reg.total_price for reg in Event_registration.objects.filter(event__in=events)),
+                'registrations_by_type': {
+                    'confirmed': Event_registration.objects.filter(event__in=events, status='confirmed').count(),
+                    'waitlisted': Event_registration.objects.filter(event__in=events, status='waitlisted').count(),
+                }
             }
         }
-        return Response(data)    
-        
+        return Response(data)
+
+       
 class AttendeeDashboard(APIView):
     permission_classes = [IsAttendee]
     
@@ -394,14 +410,56 @@ class EventCalendarExport(APIView):
 class CreatePaymentIntent(APIView):
     def post(self, request, ticket_type_id):
         ticket_type = get_object_or_404(TicketType, pk=ticket_type_id)
-        
+        # Get or create registration (simplified)
+        registration = Event_registration.objects.create(
+            event=ticket_type.event,
+            attendee=request.user,
+            ticket_type=ticket_type,
+            status=Event_registration.PENDING  # New status
+        )
         payment_intent = stripe.PaymentIntent.create(
             amount=int(ticket_type.price * 100),
             currency='usd',
-            metadata={'ticket_type_id': ticket_type_id}
+            metadata={'registration_id': registration.id}
         )
-        
-        return Response({'client_secret': payment_intent.client_secret})     
+        return Response({'client_secret': payment_intent.client_secret})
     
+# views.py
+@api_view(['POST'])
+def stripe_webhook(request):
+    payload = request.body
+    event = None
+    try:
+        event = stripe.Event.construct_from(
+            json.loads(payload), stripe.api_key
+        )
+    except ValueError as e:
+        # Invalid payload
+        return HttpResponse(status=400)
+
+    if event.type == 'payment_intent.succeeded':
+        payment_intent = event.data.object
+        registration_id = payment_intent.metadata.get('registration_id')
+        registration = Event_registration.objects.get(id=registration_id)
+        registration.status = Event_registration.CONFIRMED
+        registration.save()
+    return HttpResponse(status=200)   
+
+
+#Event category
+
+class CreateCategoryView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        serializer = EventCategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
     
-    
+class ListCategoriesView(APIView):
+    def get(self, request):
+        categories = EventCategory.objects.all()
+        serializer = EventCategorySerializer(categories, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)    

@@ -16,6 +16,9 @@ urlpatterns = [
     path('events/<int:event_id>/export-calendar/',views.EventCalendarExport.as_view(),name='export-calendar'),
     path('ticket-types/<int:ticket_type_id>/create-payment-intent/',views.CreatePaymentIntent.as_view(),
     name='create-payment-intent'),
+    path('stripe-webhook/', views.stripe_webhook, name='webhook'),
+    path('create-category/',views.CreateCategoryView.as_view(), name='create-category'),
+    path('list-category/',views.ListCategoriesView.as_view(), name='category-list'),
 
     
 

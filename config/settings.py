@@ -163,6 +163,12 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,  # Enable blacklisting
+    'BLACKLIST_AFTER_ROTATION': True, 
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+
+#Stripe Keys
+
+PUBLISHABLE_KEY = "pk_test_51PsEYPP2Qq4XeBigZR89NFz4shl30T6GwpsN4I2KtihTioJXI2DFhFaAeTLzflJoeaBybQDcJx58ueV33zURPWCI00RoUPkzMC"
+SECRET_KEY = "sk_test_51PsEYPP2Qq4XeBigaNpxyZT8CqOerhuVVRk3uBT11fS7aZi19TEO8MWBKFAU6AGNsNj4qCxlFf1VYsydrVKqTz2700mriOkCaU"
