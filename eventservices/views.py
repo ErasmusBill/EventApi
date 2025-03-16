@@ -14,7 +14,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view
-from .permissions import IsAdmin,IsOrganizer,IsAttendee
+from .permissions import IsAdmin,IsOrganizer,IsAttendee,IsOrganizerOrAdmin
 from django.http import HttpResponse
 import csv
 from datetime import timedelta
@@ -27,11 +27,13 @@ import qrcode
 from io import BytesIO
 from django.core.files import File
 import json
+from rest_framework_simplejwt.authentication import JWTAuthentication
 # Create your views here.
 
 #For event handling
 class CreateEventView(APIView):
-    permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin]
+    permission_classes = [IsAuthenticated,IsOrganizerOrAdmin]
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         serializer = EventSerializer(data=request.data)
@@ -41,7 +43,7 @@ class CreateEventView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class EventDuplicateView(APIView):
-    permission_classes = [IsAuthenticated, IsOrganizer|IsAdmin]
+    permission_classes = [IsAuthenticated, IsOrganizerOrAdmin]
 
     def post(self, request, pk):
         original_event = get_object_or_404(Event, pk=pk)
@@ -61,7 +63,7 @@ class EventDuplicateView(APIView):
 
 
 class UpdateEventView(APIView):
-    permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin]
+    permission_classes = [IsAuthenticated,IsOrganizerOrAdmin]
 
     def put(self, request, pk):
         event = get_object_or_404(Event, pk=pk)
@@ -77,7 +79,7 @@ class UpdateEventView(APIView):
 
 
 class DeleteEventView(APIView):
-    permission_classes = [IsAuthenticated,IsOrganizer,IsAdmin]
+    permission_classes = [IsAuthenticated,IsOrganizerOrAdmin]
 
     def delete(self, request, pk):
         event = get_object_or_404(Event, pk=pk)

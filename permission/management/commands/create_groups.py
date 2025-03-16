@@ -26,8 +26,8 @@ class Command(BaseCommand):
         attendee_perms = [
             'view_event',
             'add_registration',
-        'change_registration',
-        '  delete_registration'
+            'change_registration',
+            ' delete_registration'
         ]
         for perm in attendee_perms:
             attendee_group.permissions.add(
