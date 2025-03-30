@@ -37,6 +37,27 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200",
 ]
 
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
 
 
 # Application definition
@@ -54,6 +75,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt', # Add this line
     'rest_framework_simplejwt.token_blacklist', # Add this line
     'permission',
+    'corsheaders',
     
 ]
 
