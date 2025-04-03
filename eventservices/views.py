@@ -332,6 +332,8 @@ class DeleteEventRegistrationView(APIView):
             {"message": "Registration deleted successfully."},
             status=status.HTTP_204_NO_CONTENT
         )
+        
+        
 @api_view(["GET"])
 def search_event(request):
     title = request.query_params.get('title')
