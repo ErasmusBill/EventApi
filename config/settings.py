@@ -12,9 +12,11 @@ ALLOWED_HOSTS = ["*"]
 
 # --- CORS Configuration ---
 CORS_ALLOW_ALL_ORIGINS = False
+
 CORS_ALLOWED_ORIGINS = [
     "https://eventapi-production-d16b.up.railway.app",
     "http://localhost:4200",
+    # Add your frontend's origin here
 ]
 CORS_ALLOW_METHODS = [
     'DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT'
@@ -23,7 +25,11 @@ CORS_ALLOW_HEADERS = [
     'accept', 'accept-encoding', 'authorization', 'content-type',
     'dnt', 'origin', 'user-agent', 'x-csrftoken', 'x-requested-with'
 ]
+CORS_URLS_REGEX = r'^/api/.*$'
+CORS_REPLACE_HTTPS_REFERER = True
 
+CORS_ALLOW_CREDENTIALS = True
+CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours
 # --- Installed Applications ---
 INSTALLED_APPS = [
     'django.contrib.admin',
