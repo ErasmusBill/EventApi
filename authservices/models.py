@@ -18,6 +18,7 @@ class User(AbstractUser):
     verification_token = models.CharField(max_length=255, null=True, blank=True)
     verification_token_expiry = models.DateTimeField(null=True, blank=True)
     is_verified = models.BooleanField(default=False)
+    
     REQUIRED_FIELDS = ['email']
 
     def __str__(self):

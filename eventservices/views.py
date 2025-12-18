@@ -30,7 +30,7 @@ import json
 from rest_framework_simplejwt.authentication import JWTAuthentication
 # Create your views here.
 
-#For event handling
+
 class CreateEventView(APIView):
     permission_classes = [IsAuthenticated,IsOrganizerOrAdmin]
     authentication_classes = [JWTAuthentication]
@@ -54,7 +54,7 @@ class EventDuplicateView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Duplicate with 7-day offset by default
+     
         new_event = original_event.duplicate()
         return Response(
             EventSerializer(new_event).data,
@@ -113,7 +113,7 @@ class DetailEventView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
-#Generate a qrcode for checkin
+
 def generate_qrcode(data, file_name):
     """
     Generate a QR code image from the given data
@@ -130,7 +130,7 @@ def generate_qrcode(data, file_name):
     img = qr.make_image(fill_color="black", back_color="white")  
 
     buffer = BytesIO()
-    img.save(buffer, format="PNG")
+    img.save(buffer)
     buffer.seek(0)
 
     file = File(buffer, name=f"{file_name}.png")
@@ -158,21 +158,21 @@ class EventRegistrationView(APIView):
         #Handle seat
         
         available_seats = event.available_seats()   
-        status_code = Event_registration.CONFIRMED
+        registration_status = Event_registration.CONFIRMED
         
         if available_seats == 0:
-            status= Event_registration.WAITLISTED
+            registration_status = Event_registration.WAITLISTED
         elif available_seats is None:
-            status= Event_registration.CONFIRMED
+            registration_status = Event_registration.CONFIRMED
         else:
-            status = Event_registration.CONFIRMED    
+            registration_status = Event_registration.CONFIRMED    
             
         #Handles registration
         
         registration = Event_registration.objects.create(
             event=event,
             attendee = request.user,
-            status=status
+            status=registration_status
         )   
         
         #Generate qrcode for checkin
@@ -201,21 +201,28 @@ class EventRegistrationView(APIView):
             Event Team
             """
         
-            email = send_mail(
+            send_mail(
                 subject=subject,
                 message = body,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[instance.attendee.email],
                 fail_silently=False,
                 )
-            
-            if instance.qr_code:
-                email.attach_file(instance.qr_code.path)
-        
-            try:
-                email.send(fail_silently=False)
-            except Exception as e:
-                print(f"Failed to send verification email: {e}")
+            # If you want to send attachments, use EmailMessage instead of send_mail.
+            # Example:
+            # from django.core.mail import EmailMessage
+            # if instance.qr_code:
+            #     email = EmailMessage(
+            #         subject=subject,
+            #         body=body,
+            #         from_email=settings.DEFAULT_FROM_EMAIL,
+            #         to=[instance.attendee.email],
+            #     )
+            #     email.attach_file(instance.qr_code.path)
+            #     try:
+            #         email.send(fail_silently=False)
+            #     except Exception as e:
+            #         print(f"Failed to send verification email: {e}")
         
     
 class CheckInView(APIView):

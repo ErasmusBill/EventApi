@@ -36,6 +36,7 @@ CORS_ALLOWED_ORIGINS = [
     
     "https://eventapi-production-d16b.up.railway.app",
     "http://localhost:4200",
+    "http://localhost:8080/",
 ]
 
 CORS_ALLOW_METHODS = [
@@ -212,5 +213,5 @@ SIMPLE_JWT = {
 
 #Stripe Keys
 
-PUBLISHABLE_KEY = "pk_test_51PsEYPP2Qq4XeBigZR89NFz4shl30T6GwpsN4I2KtihTioJXI2DFhFaAeTLzflJoeaBybQDcJx58ueV33zURPWCI00RoUPkzMC"
-SECRET_KEY = "sk_test_51PsEYPP2Qq4XeBigaNpxyZT8CqOerhuVVRk3uBT11fS7aZi19TEO8MWBKFAU6AGNsNj4qCxlFf1VYsydrVKqTz2700mriOkCaU"
+PUBLISHABLE_KEY = os.getenv("PUBLISHABLE_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY")
